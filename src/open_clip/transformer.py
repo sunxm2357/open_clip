@@ -520,6 +520,7 @@ class TextTransformer(nn.Module):
             embed_cls: bool = False,
             pad_id: int = 0,
             output_tokens: bool = False,
+            load_pretrained_checkpoint: bool = True
     ):
         super().__init__()
         self.output_tokens = output_tokens
@@ -529,6 +530,7 @@ class TextTransformer(nn.Module):
         self.output_dim = output_dim
         self.heads = heads
         self.pad_id = pad_id
+        self.load_pretrained_checkpoint = load_pretrained_checkpoint
 
         self.text_projection = nn.Parameter(torch.empty(width, output_dim))
 

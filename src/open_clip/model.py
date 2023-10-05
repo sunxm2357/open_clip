@@ -1,5 +1,6 @@
 """ CLIP Model
 
+
 Adapted from https://github.com/openai/CLIP. Originally MIT License, Copyright (c) 2021 OpenAI.
 """
 from dataclasses import dataclass
@@ -52,6 +53,7 @@ class CLIPTextCfg:
     context_length: int = 77
     vocab_size: int = 49408
     width: int = 512
+    hidden_dim: int = 128
     heads: int = 8
     layers: int = 12
     ls_init_value: Optional[float] = None  # layer scale initial value
@@ -60,6 +62,8 @@ class CLIPTextCfg:
     hf_model_pretrained: bool = True
     proj: str = 'mlp'
     pooler_type: str = 'mean_pooler'
+    load_pretrained: bool = True
+    generate: bool = False
     embed_cls: bool = False
     pad_id: int = 0
     output_tokens: bool = False
@@ -158,10 +162,13 @@ def _build_text_tower(
         text = HFTextEncoder(
             text_cfg.hf_model_name,
             output_dim=embed_dim,
+            hidden_dim=text_cfg.hidden_dim, 
             proj=text_cfg.proj,
             pooler_type=text_cfg.pooler_type,
             pretrained=text_cfg.hf_model_pretrained,
             output_tokens=text_cfg.output_tokens,
+            load_pretrained_checkpoint=text_cfg.load_pretrained,
+            generate=text_cfg.generate
         )
     else:
         act_layer = QuickGELU if quick_gelu else nn.GELU
@@ -180,6 +187,7 @@ def _build_text_tower(
             pad_id=text_cfg.pad_id,
             act_layer=act_layer,
             norm_layer=norm_layer,
+            load_pretrained_checkpoint=text_cfg.load_pretrained
         )
     return text
 
@@ -203,6 +211,7 @@ class CLIP(nn.Module):
         self.visual = _build_vision_tower(embed_dim, vision_cfg, quick_gelu, cast_dtype)
 
         text = _build_text_tower(embed_dim, text_cfg, quick_gelu, cast_dtype)
+        self.load_pretrained_checkpoint = text.load_pretrained_checkpoint
         self.transformer = text.transformer
         self.context_length = text.context_length
         self.vocab_size = text.vocab_size
@@ -212,7 +221,7 @@ class CLIP(nn.Module):
         self.text_projection = text.text_projection
         self.register_buffer('attn_mask', text.attn_mask, persistent=False)
 
-        self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
+        self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale, requires_grad=False)
         if init_logit_bias is not None:
             self.logit_bias = nn.Parameter(torch.ones([]) * init_logit_bias)
         else:
@@ -286,6 +295,7 @@ class CustomTextCLIP(nn.Module):
         self.output_dict = output_dict
         self.visual = _build_vision_tower(embed_dim, vision_cfg, quick_gelu, cast_dtype)
         self.text = _build_text_tower(embed_dim, text_cfg, quick_gelu, cast_dtype)
+        self.load_pretrained_checkpoint = self.text.load_pretrained_checkpoint
         self.context_length = self.text.context_length
         self.vocab_size = self.text.vocab_size
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)

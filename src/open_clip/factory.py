@@ -109,6 +109,23 @@ def load_checkpoint(model, checkpoint_path, strict=True):
     if position_id_key in state_dict and not hasattr(model, position_id_key):
         del state_dict[position_id_key]
     resize_pos_embed(state_dict, model)
+    if not model.load_pretrained_checkpoint:
+        new_state_dict = {}
+        for k,v in state_dict.items():
+            if 'text.' not in k:
+                new_state_dict[k] = v
+        del state_dict['logit_scale']
+        strict=False
+        state_dict=new_state_dict
+   # new_state_dict = {}
+   # for k,v in state_dict.items():
+   #    if 'text.transformer'  in k:
+   #        k_new = 'text.transformer.model.' + k[17:]
+   #        new_state_dict[k_new] = v
+   #    else:
+   #         new_state_dict[k] = v
+   # state_dict=new_state_dict
+   # strict=False
     incompatible_keys = model.load_state_dict(state_dict, strict=strict)
     return incompatible_keys
 

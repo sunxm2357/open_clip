@@ -385,11 +385,20 @@ def get_wds_dataset(args, preprocess_img, is_train, epoch=0, floor=False, tokeni
             # at this point, we have an iterator over the shards assigned to each worker
             wds.tarfile_to_samples(handler=log_and_continue),
         ])
+    def format_text(text):
+        if args.wrap_caption:
+            return "USER: {}\n ASSISTANT".format(text)
+        elif args.wrap_caption_long:
+            return "USER: A photo of a {}.A {} has the following visual attributes ASSISTANT:".format(text,text)
+        elif args.wrap_caption_long_list:
+            return "USER: A photo of a {}.A {} has the following visual attributes ASSISTANT: 1.".format(text,text)
+        else:
+            return text
     pipeline.extend([
         wds.select(filter_no_caption_or_no_image),
         wds.decode("pilrgb", handler=log_and_continue),
         wds.rename(image="jpg;png;jpeg;webp", text="txt"),
-        wds.map_dict(image=preprocess_img, text=lambda text: tokenizer(text)[0]),
+        wds.map_dict(image=preprocess_img, text=lambda text: tokenizer(format_text(text))[0]),
         wds.to_tuple("image", "text"),
         wds.batched(args.batch_size, partial=not is_train)
     ])

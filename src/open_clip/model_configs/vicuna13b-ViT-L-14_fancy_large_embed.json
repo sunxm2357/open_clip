@@ -1,0 +1,17 @@
+{
+    "embed_dim": 768,
+    "vision_cfg": {
+        "image_size": 224,
+        "layers": 24,
+        "width": 1024,
+        "patch_size": 14
+    },
+    "text_cfg": {
+        "hf_model_name": "lmsys/vicuna-13b-v1.5",
+        "hf_tokenizer_name": "lmsys/vicuna-13b-v1.5",
+        "proj": "linear",
+        "pooler_type": "fancy_attention_pooler",
+        "load_pretrained": false,
+        "hidden_dim": 512
+    }
+}

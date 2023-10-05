@@ -10,7 +10,7 @@ from torch import TensorType
 
 try:
     import transformers
-    from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, PretrainedConfig, LlamaConfig,GenerationConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
 except ImportError as e:
@@ -25,6 +25,8 @@ except ImportError as e:
         pass
 
 from .hf_configs import arch_dict
+
+
 
 
 # utils
@@ -47,8 +49,55 @@ class MeanPooler(nn.Module):
     """Mean pooling"""
 
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
-        masked_output = x.last_hidden_state * attention_mask.unsqueeze(-1)
+        masked_output = x.hidden_states[-1] * attention_mask.unsqueeze(-1)
         return masked_output.sum(dim=1) / attention_mask.sum(-1, keepdim=True)
+
+
+@register_pooler
+class AttentionPooler(nn.Module):
+    """Mean pooling"""
+
+    def __init__(self, in_dim, hidden_dim=128):
+        super().__init__()
+        self.in_proj = nn.Linear(in_dim,hidden_dim,bias=False)
+        self.attn_pool = nn.MultiheadAttention(hidden_dim,8,batch_first=True)
+
+
+    def forward(self, x: BaseModelOutput, attention_mask: TensorType):
+        x = self.in_proj(x.hidden_states[-1])
+        x = self.attn_pool(x,x,x,key_padding_mask=~attention_mask.to(torch.bool))[0]
+        x = x[:,0,:]
+        return x
+
+@register_pooler
+class FancyAttentionPooler(nn.Module):
+    def __init__(self,
+        in_dim,
+        hidden_dim,
+        norm =nn.LayerNorm
+    ):
+        super().__init__()
+        self.in_proj = nn.Linear(in_dim,hidden_dim,bias=False)
+        self.attn_pool = nn.MultiheadAttention(hidden_dim,8,batch_first=True)
+        self.cls_q = nn.Parameter(torch.zeros(1,1,hidden_dim))
+        self.norm = norm(hidden_dim)
+        nn.init.trunc_normal_(self.cls_q, std=0.02)
+        self.apply(self._init_weights)
+
+    def forward(self, x: BaseModelOutput, attention_mask: TensorType):
+        batch_size = x.hidden_states[-1].shape[0]
+        x = self.in_proj(x.hidden_states[-1])
+        query = torch.tile(self.cls_q,(batch_size,1,1))
+        x = self.attn_pool(query,x,x,key_padding_mask=~attention_mask.to(torch.bool))[0]
+        x = x[:,0,:]
+        return self.norm(x)
+
+    @torch.no_grad()
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
 
 
 @register_pooler
@@ -56,7 +105,7 @@ class MaxPooler(nn.Module):
     """Max pooling"""
 
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
-        masked_output = x.last_hidden_state.masked_fill(attention_mask.unsqueeze(-1), -torch.inf)
+        masked_output = x.hidden_states[-1].masked_fill(attention_mask.unsqueeze(-1), -torch.inf)
         return masked_output.max(1).values
 
 
@@ -76,7 +125,7 @@ class ClsPooler(nn.Module):
         ):
             return x.pooler_output
 
-        return x.last_hidden_state[:, self.cls_token_position, :]
+        return x.hidden_states[-1][:, self.cls_token_position, :]
 
 
 @register_pooler
@@ -90,7 +139,7 @@ class ClsLastHiddenStatePooler(nn.Module):
         self.cls_token_position = 0
 
     def forward(self, x: BaseModelOutput, attention_mask: TensorType):
-        return x.last_hidden_state[:, self.cls_token_position, :]
+        return x.hidden_states[-1][:, self.cls_token_position, :]
 
 
 class HFTextEncoder(nn.Module):
@@ -101,15 +150,22 @@ class HFTextEncoder(nn.Module):
             self,
             model_name_or_path: str,
             output_dim: int,
+            hidden_dim: int, 
             config: PretrainedConfig = None,
             pooler_type: str = None,
             proj: str = None,
             pretrained: bool = True,
             output_tokens: bool = False,
+            load_pretrained_checkpoint: bool = True,
+            generate: bool = False,
     ):
         super().__init__()
         self.output_tokens = output_tokens
         self.output_dim = output_dim
+        self.hidden_dim = hidden_dim
+        self.load_pretrained_checkpoint = load_pretrained_checkpoint
+        self.generate = generate
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 
         # TODO: find better way to get this information
         uses_transformer_pooler = (pooler_type == "cls_pooler")
@@ -118,27 +174,35 @@ class HFTextEncoder(nn.Module):
             raise RuntimeError("Please `pip install transformers` to use pre-trained HuggingFace models")
         if config is None:
             self.config = AutoConfig.from_pretrained(model_name_or_path)
-            create_func, model_args = (AutoModel.from_pretrained, model_name_or_path) if pretrained else (
-                AutoModel.from_config, self.config)
+            create_func, model_args = (AutoModelForCausalLM.from_pretrained, model_name_or_path) if pretrained else (
+                AutoModelForCausalLM.from_config, self.config)
             # TODO: do all model configs have this attribute? PretrainedConfig does so yes??
             if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:
-                self.transformer = create_func(model_args)
+                self.transformer = create_func(model_args,output_hidden_states=True)
                 self.transformer = self.transformer.encoder
+            elif isinstance(self.config, LlamaConfig):
+                self.transformer = create_func(model_args, output_hidden_states=True)
             else:
-                self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+                self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler,output_hidden_states=True)
         else:
             self.config = config
-            self.transformer = AutoModel.from_config(config)
+            self.transformer = AutoModelForCausalLM.from_config(config)
         if pooler_type is None:  # get default arch pooler
             pooler_type = (arch_dict[self.config.model_type]["pooler"])
+        pooler_kwargs = {}
+        d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
+        if pooler_type == "attention_pooler" or pooler_type =="fancy_attention_pooler":
+            pooler_kwargs["in_dim"] = d_model
+            pooler_kwargs["hidden_dim"] = hidden_dim
+            d_model = hidden_dim
 
         # FIXME downstream users of OpenCLIP models use these attr, need to verify valid across all models
         self.vocab_size = getattr(self.config, 'vocab_size', 0)
         self.context_length = getattr(self.config, 'max_position_embeddings', 0)
 
-        self.pooler = _POOLERS[pooler_type]()
+        self.pooler = _POOLERS[pooler_type](**pooler_kwargs)
 
-        d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
+
         if (d_model == output_dim) and (proj is None):  # do we always need a proj?
             self.proj = nn.Identity()
         elif proj == 'linear':
@@ -153,15 +217,28 @@ class HFTextEncoder(nn.Module):
 
     def forward(self, x: TensorType):
         attn_mask = (x != self.config.pad_token_id).long()
-        out = self.transformer(input_ids=x, attention_mask=attn_mask)
+        if self.generate:
+            generate_config = GenerationConfig(max_new_tokens=100, 
+                    do_sample=False,
+                    return_dict_in_generate=True,
+                    output_hidden_states=True)
+            out = self.transformer.generate(input_ids=x, 
+                    attention_mask=attn_mask,
+                    generation_config=generate_config)
+            gen_states = [states[-1] for states in out.hidden_states]
+            out.hidden_states = torch.concat(gen_states,dim=1).unsqueeze(0)
+            attn_mask = (out.sequences[:,:-1] != self.config.pad_token_id).long()
+            print(self.tokenizer.decode(out.sequences[0]))
+        else:
+            out = self.transformer(input_ids=x, attention_mask=attn_mask)
         pooled_out = self.pooler(out, attn_mask)
         projected = self.proj(pooled_out)
 
-        seq_len = out.last_hidden_state.shape[1]
+        seq_len = out.hidden_states[-1].shape[1]
         tokens = (
-            out.last_hidden_state[:, torch.arange(seq_len) != self.pooler.cls_token_position, :] 
+            out.hidden_states[-1][:, torch.arange(seq_len) != self.pooler.cls_token_position, :] 
             if type(self.pooler) == ClsPooler 
-            else out.last_hidden_state
+            else out.hidden_states[-1]
         )
         
         if self.output_tokens:

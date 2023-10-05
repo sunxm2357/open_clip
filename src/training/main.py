@@ -420,6 +420,12 @@ def main(args):
 
     loss = create_loss(args)
 
+    for n,p in model.named_parameters():
+        if p.requires_grad:
+            print(n)
+        else:
+            print('no_grad')
+
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')

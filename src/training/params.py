@@ -442,6 +442,25 @@ def parse_args(args):
         action="store_true",
         help='Use SigLip (sigmoid) loss.'
     )
+    parser.add_argument(
+        "--wrap-caption",
+        default=False,
+        action="store_true",
+        help='Wrap Caption for vicuna.'
+    )
+    parser.add_argument(
+        "--wrap-caption-long",
+        default=False,
+        action="store_true",
+        help='Wrap Caption for vicuna.'
+    )
+    parser.add_argument(
+        "--wrap-caption-long-list",
+        default=False,
+        action="store_true",
+        help='Wrap Caption for vicuna.'
+    )
+ 
     args = parser.parse_args(args)
 
     # If some params are not passed, we use the default values based on model name.

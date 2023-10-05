@@ -194,6 +194,7 @@ class HFTokenizer:
     def __init__(self, tokenizer_name: str):
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        self.tokenizer.padding_side = "left"
 
     def save_pretrained(self, dest):
         self.tokenizer.save_pretrained(dest)
