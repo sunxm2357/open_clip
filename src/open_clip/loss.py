@@ -193,22 +193,27 @@ class DistillClipLoss(ClipLoss):
             output_dict=False,
     ):
         logits_per_image, logits_per_text = \
-            self.get_logits(image_features, text_features, logit_scale)
+            self.get_logits(image_features, text_features, 0.0 * logit_scale + 1.0)
 
         dist_logits_per_image, dist_logits_per_text = \
-            self.get_logits(dist_image_features, dist_text_features, dist_logit_scale)
+            self.get_logits(dist_image_features, dist_text_features, 1.0)
 
         labels = self.get_ground_truth(image_features.device, logits_per_image.shape[0])
 
         contrastive_loss = (
-            F.cross_entropy(logits_per_image, labels) +
-            F.cross_entropy(logits_per_text, labels)
+            F.cross_entropy(logits_per_image * logit_scale , labels) +
+            F.cross_entropy(logits_per_text * logit_scale   , labels)
         ) / 2
 
+        #contrastive_loss = 0.0 * contrastive_loss
+
+        #contrastive_loss = torch.zeros(1,device=image_features.device)
+
         distill_loss = (
-            self.dist_loss(dist_logits_per_image, logits_per_image) +
-            self.dist_loss(dist_logits_per_text, logits_per_text)
+            self.dist_loss(dist_logits_per_image * 100  , logits_per_image * 100) +
+            self.dist_loss(dist_logits_per_text * 100   , logits_per_text * 100 )
         ) / 2
+
 
         if output_dict:
             return {"contrastive_loss": contrastive_loss, "distill_loss": distill_loss}
@@ -412,3 +417,155 @@ class SigLipLoss(nn.Module):
                     text_features_to_right = text_features_from_left
 
         return {"contrastive_loss": loss} if output_dict else loss
+
+class DistillSigLipLoss(nn.Module):
+    """ Sigmoid Loss for Language Image Pre-Training (SigLIP) - https://arxiv.org/abs/2303.15343
+
+    @article{zhai2023sigmoid,
+      title={Sigmoid loss for language image pre-training},
+      author={Zhai, Xiaohua and Mustafa, Basil and Kolesnikov, Alexander and Beyer, Lucas},
+      journal={arXiv preprint arXiv:2303.15343},
+      year={2023}
+    }
+    """
+    def __init__(
+            self,
+            local_loss=False,
+            gather_with_grad=False,
+            cache_labels=False,
+            rank=0,
+            world_size=1,
+            bidir=True,
+            use_horovod=False,
+    ):
+        super().__init__()
+        self.local_loss = local_loss
+        self.gather_with_grad = gather_with_grad
+        self.cache_labels = cache_labels
+        self.rank = rank
+        self.world_size = world_size
+        assert not use_horovod  # FIXME need to look at hvd ops for ring transfers
+        self.use_horovod = use_horovod
+        self.bidir = bidir
+
+        # cache state FIXME cache not currently used, worthwhile?
+        self.prev_num_logits = 0
+        self.labels = {}
+
+
+    def dist_loss(self, teacher_logits, student_logits):
+        return -(teacher_logits.softmax(dim=1) * student_logits.log_softmax(dim=1)).sum(dim=1).mean(dim=0)
+
+
+
+    def get_ground_truth(self, device, dtype, num_logits, negative_only=False) -> torch.Tensor:
+        labels = -torch.ones((num_logits, num_logits), device=device, dtype=dtype)
+        if not negative_only:
+            labels = 2 * torch.eye(num_logits, device=device, dtype=dtype) + labels
+        return labels
+
+    def get_logits(self, image_features, text_features, logit_scale, logit_bias=None):
+        logits = logit_scale * image_features @ text_features.T
+        if logit_bias is not None:
+            logits += logit_bias
+        return logits
+
+    def get_distill_logits(self, image_features, text_features, logit_scale=1/0.07):
+        if self.world_size > 1:
+            all_image_features, all_text_features = gather_features(
+                image_features, text_features,
+                self.local_loss, self.gather_with_grad, self.rank, self.world_size, self.use_horovod)
+
+            if self.local_loss:
+                logits_per_image = logit_scale * image_features @ all_text_features.T
+                logits_per_text = logit_scale * text_features @ all_image_features.T
+            else:
+                logits_per_image = logit_scale * all_image_features @ all_text_features.T
+                logits_per_text = logits_per_image.T
+        else:
+            logits_per_image = logit_scale * image_features @ text_features.T
+            logits_per_text = logit_scale * text_features @ image_features.T
+        
+        return logits_per_image, logits_per_text
+
+
+
+    def _loss(self, image_features, text_features, logit_scale, logit_bias=None, negative_only=False):
+        logits = self.get_logits(image_features, text_features, logit_scale, logit_bias)
+        labels = self.get_ground_truth(
+            image_features.device,
+            image_features.dtype,
+            image_features.shape[0],
+            negative_only=negative_only,
+        )
+        loss = -F.logsigmoid(labels * logits).sum() / image_features.shape[0]
+        return loss
+
+    def forward(self, image_features, text_features, logit_scale, logit_bias, dist_image_features, dist_text_features, dist_logit_scale, output_dict=False):
+        loss = self._loss(image_features, text_features, logit_scale, logit_bias)
+
+        if self.world_size > 1:
+            # exchange text features w/ neighbour world_size - 1 times
+            right_rank = (self.rank + 1) % self.world_size
+            left_rank = (self.rank - 1 + self.world_size) % self.world_size
+            if self.bidir:
+                text_features_to_right = text_features_to_left = text_features
+                num_bidir, remainder = divmod(self.world_size - 1, 2)
+                for i in range(num_bidir):
+                    text_features_recv = neighbour_exchange_bidir_with_grad(
+                        left_rank,
+                        right_rank,
+                        text_features_to_left,
+                        text_features_to_right,
+                    )
+
+                    for f in text_features_recv:
+                        loss += self._loss(
+                            image_features,
+                            f,
+                            logit_scale,
+                            logit_bias,
+                            negative_only=True,
+                        )
+                    text_features_to_left, text_features_to_right = text_features_recv
+
+                if remainder:
+                    text_features_recv = neighbour_exchange_with_grad(
+                        left_rank, right_rank, text_features_to_right)
+
+                    loss += self._loss(
+                        image_features,
+                        text_features_recv,
+                        logit_scale,
+                        logit_bias,
+                        negative_only=True,
+                    )
+            else:
+                text_features_to_right = text_features
+                for i in range(self.world_size - 1):
+                    text_features_from_left = neighbour_exchange_with_grad(
+                        left_rank, right_rank, text_features_to_right)
+
+                    loss += self._loss(
+                        image_features,
+                        text_features_from_left,
+                        logit_scale,
+                        logit_bias,
+                        negative_only=True,
+                    )
+                    text_features_to_right = text_features_from_left
+
+        logits_per_image, logits_per_text = \
+            self.get_distill_logits(image_features, text_features)
+
+        dist_logits_per_image, dist_logits_per_text = \
+            self.get_distill_logits(dist_image_features, dist_text_features)
+
+
+        distill_loss = (
+            self.dist_loss(dist_logits_per_image, logits_per_image) +
+            self.dist_loss(dist_logits_per_text, logits_per_text)
+            ) / 2
+
+
+        return {"contrastive_loss": loss, "distill_loss": distill_loss} if output_dict else (loss, distill_loss)

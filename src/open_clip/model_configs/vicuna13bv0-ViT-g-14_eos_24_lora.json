@@ -1,0 +1,21 @@
+{
+    "embed_dim": 1024,
+    "vision_cfg": {
+        "image_size": 224,
+        "layers": 40,
+        "width": 1408,
+        "patch_size": 14,
+        "head_width": 88,
+        "mlp_ratio": 4.3637
+    },
+    "text_cfg": {
+        "hf_model_name": "lmsys/vicuna-13b-v1.3",
+        "hf_tokenizer_name": "lmsys/vicuna-13b-v1.3",
+        "proj": "linear",
+        "pooler_type": "eos_attention_pooler",
+        "load_pretrained": false,
+        "prompt_tuning": true,
+        "lora": true,
+        "num_prompt_tokens": 24
+    }
+}

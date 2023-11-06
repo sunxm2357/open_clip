@@ -20,6 +20,7 @@ from .zero_shot import zero_shot_eval
 from .precision import get_autocast
 
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -59,6 +60,7 @@ def backward(total_loss, scaler):
         scaler.scale(total_loss).backward()
     else:
         total_loss.backward()
+    
 
 
 def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist_model, args, tb_writer=None):
@@ -90,8 +92,15 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             scheduler(step)
 
         images, texts = batch
+        if args.distill:
+            texts, texts_distill = zip(*texts) 
+            texts = torch.stack(texts)
+            texts_distill = torch.stack(texts_distill)
+            texts = texts.to(device=device, non_blocking=True)
+            texts_distill = texts_distill.to(device=device, non_blocking=True)
+        else:
+            texts = texts.to(device=device, non_blocking=True)
         images = images.to(device=device, dtype=input_dtype, non_blocking=True)
-        texts = texts.to(device=device, non_blocking=True)
 
         data_time_m.update(time.time() - end)
         optimizer.zero_grad()
@@ -102,14 +111,27 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                 logit_scale = model_out["logit_scale"]
                 if args.distill:
                     with torch.no_grad():
-                        dist_model_out = dist_model(images, texts)
+                        dist_model_out = dist_model(images, texts_distill)
                     model_out.update({f'dist_{k}': v for k, v in dist_model_out.items()})
                 losses = loss(**model_out, output_dict=True)
 
                 total_loss = sum(losses.values())
+                #for p in model.parameters():
+                #    if p.requires_grad:
+                #        total_loss += 0.0 * p.sum()
+
+                #for n, p in model.named_parameters():
+                #    if p.grad is None and p.requires_grad is True:
+                #                print('Parameter not used:', n, p.shape)
+                #                #total_loss += 0.0 * p.sum()
+                #1/0 
                 losses["loss"] = total_loss
 
             backward(total_loss, scaler)
+
+            for n, p in model.named_parameters():
+                    if p.grad is None and p.requires_grad is True:
+                                print('Parameter not used:', n, p.shape)
         else:
             # First, cache the features without any gradient tracking.
             with torch.no_grad():
@@ -160,6 +182,11 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                     losses["loss"] = total_loss
 
                 backward(total_loss, scaler)
+                for n, p in model.named_parameters():
+                    if p.grad is None and p.requires_grad is True:
+                                print('Parameter not used:', n, p.shape)
+                                #total_loss += 0.0 * p.sum()
+ 
 
         if scaler is not None:
             if args.horovod:
@@ -271,8 +298,16 @@ def evaluate(model, data, epoch, args, tb_writer=None):
         with torch.no_grad():
             for i, batch in enumerate(dataloader):
                 images, texts = batch
+                if args.distill:
+                    texts, texts_distill = zip(*texts) 
+                    texts = torch.stack(texts)
+                    texts_distill = torch.stack(texts_distill)
+                    texts = texts.to(device=device, non_blocking=True)
+                    texts_distill = texts_distill.to(device=device, non_blocking=True)
+                else:
+                    texts = texts.to(device=device, non_blocking=True)
                 images = images.to(device=device, dtype=input_dtype, non_blocking=True)
-                texts = texts.to(device=device, non_blocking=True)
+
 
                 with autocast():
                     model_out = model(images, texts)

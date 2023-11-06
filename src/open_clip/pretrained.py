@@ -248,6 +248,29 @@ _PRETRAINED = {
     "vicuna13b-ViT-L-14": _VITL14,
     "vicuna13b-ViT-L-14_fancy": _VITL14,
     "vicuna13b-ViT-B-16_fancy": _VITB16,
+    "vicuna13b-ViT-B-16_eos": _VITB16,
+    "vicuna13b-ViT-B-16_eos_12": _VITB16,
+    "vicuna13b-ViT-B-16_eos_6": _VITB16,
+    "vicuna13b-ViT-B-16_eos_24": _VITB16,
+    "vicuna13b-ViT-L-14_eos_24": _VITL14,
+    "vicuna13b-ViT-B-16_eos_24_lora": _VITB16,
+    "vicuna13b-ViT-B-16_eos_eff_24_lora": _VITB16,
+    "vicuna13b-ViT-B-16_eos_learnedmean_24_lora": _VITB16,
+    "vicuna13b-ViT-B-16_eos_mean_24_lora": _VITB16,
+    "vicuna13bv0-ViT-B-16_eos_24_lora": _VITB16,
+    "vicuna13bv0-ViT-g-14_eos_24_lora": dict(
+        # from QuanSun/EVA-CLIP/EVA01_CLIP_g_14_psz14_s11B.pt
+        laion400m_s11b_b41k=_pcfg(hf_hub='timm/eva_giant_patch14_clip_224.laion400m_s11b_b41k/'),
+    ),
+    "vicuna13bv0-ViT-g-14_eos_eff_24_lora": dict(
+        # from QuanSun/EVA-CLIP/EVA01_CLIP_g_14_psz14_s11B.pt
+        laion400m_s11b_b41k=_pcfg(hf_hub='timm/eva_giant_patch14_clip_224.laion400m_s11b_b41k/'),
+    ),
+ 
+    "vicuna13b-ViT-L-14_eos_24_lora": _VITL14,
+    "vicuna13b-ViT-B-16_eos_24_prefix": _VITB16,
+    "vicuna13b-ViT-B-16_eos_24_mlp": _VITB16,
+    "vicuna13b-ViT-B-16_eos_no_pt": _VITB16,
     "vicuna13b-ViT-L-14_fancy_generate": _VITL14,
     "vicuna13b-ViT-L-14_fancy_mlp": _VITL14,
     "vicuna13b-ViT-L-14_mlp": _VITL14,

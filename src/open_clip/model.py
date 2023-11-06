@@ -65,6 +65,10 @@ class CLIPTextCfg:
     load_pretrained: bool = True
     generate: bool = False
     embed_cls: bool = False
+    prompt_tuning: bool = False
+    lora: bool = False
+    num_prompt_tokens: int = 12
+    num_prefix_tokens: int = 0
     pad_id: int = 0
     output_tokens: bool = False
 
@@ -158,6 +162,7 @@ def _build_text_tower(
     if isinstance(text_cfg, dict):
         text_cfg = CLIPTextCfg(**text_cfg)
 
+
     if text_cfg.hf_model_name:
         text = HFTextEncoder(
             text_cfg.hf_model_name,
@@ -168,7 +173,11 @@ def _build_text_tower(
             pretrained=text_cfg.hf_model_pretrained,
             output_tokens=text_cfg.output_tokens,
             load_pretrained_checkpoint=text_cfg.load_pretrained,
-            generate=text_cfg.generate
+            generate=text_cfg.generate,
+            prompt_tuning = text_cfg.prompt_tuning,
+            lora = text_cfg.lora,
+            num_prompt_tokens = text_cfg.num_prompt_tokens,
+            num_prefix_tokens = text_cfg.num_prefix_tokens
         )
     else:
         act_layer = QuickGELU if quick_gelu else nn.GELU
@@ -220,8 +229,7 @@ class CLIP(nn.Module):
         self.ln_final = text.ln_final
         self.text_projection = text.text_projection
         self.register_buffer('attn_mask', text.attn_mask, persistent=False)
-
-        self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale, requires_grad=False)
+        self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
         if init_logit_bias is not None:
             self.logit_bias = nn.Parameter(torch.ones([]) * init_logit_bias)
         else:
@@ -299,6 +307,10 @@ class CustomTextCLIP(nn.Module):
         self.context_length = self.text.context_length
         self.vocab_size = self.text.vocab_size
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
+
+        if (text_cfg.get('lora',False) == True):
+            self.text.transformer.base_model.model.lm_head.weight.requires_grad=False
+
         if init_logit_bias is not None:
             self.logit_bias = nn.Parameter(torch.ones([]) * init_logit_bias)
         else:

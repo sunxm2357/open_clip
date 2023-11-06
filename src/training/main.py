@@ -70,6 +70,7 @@ def get_latest_checkpoint(path: str, remote : bool):
 def main(args):
     args = parse_args(args)
 
+
     if torch.cuda.is_available():
         # This enables tf32 on Ampere GPUs which is only 8% slower than
         # float16 and almost as accurate as float32
@@ -350,7 +351,10 @@ def main(args):
             logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {start_epoch})")
 
     # initialize datasets
-    data = get_data(args, (preprocess_train, preprocess_val), epoch=start_epoch, tokenizer=get_tokenizer(args.model))
+    if args.distill ==True:
+        data = get_data(args, (preprocess_train, preprocess_val), epoch=start_epoch, tokenizer=(get_tokenizer(args.model),get_tokenizer(args.distill_model)))
+    else:
+        data = get_data(args, (preprocess_train, preprocess_val), epoch=start_epoch, tokenizer=get_tokenizer(args.model))
     assert len(data), 'At least one train or eval dataset must be specified.'
 
     # create scheduler if train

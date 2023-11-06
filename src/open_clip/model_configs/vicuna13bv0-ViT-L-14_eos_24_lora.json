@@ -1,0 +1,19 @@
+{
+    "embed_dim": 768,
+    "vision_cfg": {
+        "image_size": 224,
+        "layers": 24,
+        "width": 1024,
+        "patch_size": 14
+    },
+    "text_cfg": {
+        "hf_model_name": "Vision-CAIR/vicuna",
+        "hf_tokenizer_name": "Vision-CAIR/vicuna",
+        "proj": "linear",
+        "pooler_type": "eos_pooler",
+        "load_pretrained": false,
+        "prompt_tuning": true,
+        "lora": true,
+        "num_prompt_tokens": 24
+    }
+}
