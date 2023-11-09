@@ -233,7 +233,7 @@ def main(args):
     )
     text_encoder = model.text.transformer
     tokenizer = model.text.tokenizer
-    prompt = f"""### Instruction:
+    prompt1 = f"""### Instruction:
     Use the Input below to create an instruction, which could have been used to generate the input using an LLM. 
 
     ### Input:
@@ -254,11 +254,138 @@ def main(args):
 
     ### Response:
     """
-    input_ids = tokenizer(prompt, return_tensors="pt", truncation=True).input_ids.cuda()
+    input_ids = tokenizer(prompt1, return_tensors="pt", truncation=True).input_ids.cuda()
     outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1, temperature=0.1)
 
     print(
-        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0][len(prompt):]}")
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt2 = f"""### Instruction:
+        A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+        ### User:
+        Write a short story about a dragon who was evil and then saw the error in [sic] it’s ways
+
+        ### Assistant:
+        """
+    input_ids = tokenizer(prompt2, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt3 = f"""### Instruction:
+            A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+            ### User:
+            You are a unicorn. Explain how you are actually real.
+
+            ### Assistant:
+            """
+    input_ids = tokenizer(prompt3, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt4 = f"""### Instruction:
+                A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+                ### User:
+                You are one of Santa’s elves. What is the big guy like the rest of the year, not in the holiday season?
+
+                ### Assistant:
+                """
+    input_ids = tokenizer(prompt4, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt5 = f"""### Instruction:
+            A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+            ### User:
+            How was Anne Frank’s diary discovered?
+
+            ### Assistant:
+            """
+    input_ids = tokenizer(prompt5, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt6 = f"""### Instruction:
+                A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+                ### User:
+                I sit in front of a computer all day. How do I manage and mitigate eye strain?
+
+                ### Assistant:
+                """
+    input_ids = tokenizer(prompt6, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt7 = f"""### Instruction:
+                A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+                ### User:
+                I keep losing my keys. How can I keep track of them?
+
+                ### Assistant:
+                """
+    input_ids = tokenizer(prompt7, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt8 = f"""### Instruction:
+                A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+                ### User:
+                I keep losing my keys. How can I keep track of them?
+
+                ### Assistant:
+                """
+    input_ids = tokenizer(prompt8, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
+    prompt8 = f"""### Instruction:
+                    A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user’s questions
+
+                    ### User: 
+                    A jar contains 60 jelly beans, If 35% of the jelly beans are removed how many are left in the jar?
+                    
+                    ### Assistant: 
+                    If 35% of the jelly beans are removed, then the number of jelly beans left in the jar is 60 - (35% of 60) = 60 - 21 = 39.
+                    
+                    ### User: 
+                    can you expand your answer to show your reasoning?
+
+                    ### Assistant:
+                    """
+    input_ids = tokenizer(prompt8, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1,
+                                    temperature=0.1)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0]}")
+
     import pdb
     pdb.set_trace()
 
