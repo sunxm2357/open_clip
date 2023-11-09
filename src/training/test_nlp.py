@@ -255,7 +255,7 @@ def main(args):
     ### Response:
     """
     input_ids = tokenizer(prompt, return_tensors="pt", truncation=True).input_ids.cuda()
-    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.9, temperature=0.9)
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=1000, do_sample=True, top_p=0.1, temperature=0.1)
 
     print(
         f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0][len(prompt):]}")
