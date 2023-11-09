@@ -259,6 +259,8 @@ def main(args):
 
     print(
         f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0][len(prompt):]}")
+    import pdb
+    pdb.set_trace()
 
 def copy_codebase(args):
     from shutil import copytree, ignore_patterns
