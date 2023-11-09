@@ -231,8 +231,34 @@ def main(args):
         aug_cfg=args.aug_cfg,
         output_dict=True,
     )
-    import pdb
-    pdb.set_trace()
+    text_encoder = model.text.transformer
+    tokenizer = model.text.tokenizer
+    prompt = f"""### Instruction:
+    Use the Input below to create an instruction, which could have been used to generate the input using an LLM. 
+
+    ### Input:
+    Dear [boss name],
+
+    I'm writing to request next week, August 1st through August 4th,
+    off as paid time off.
+
+    I have some personal matters to attend to that week that require 
+    me to be out of the office. I wanted to give you as much advance 
+    notice as possible so you can plan accordingly while I am away.
+
+    Please let me know if you need any additional information from me 
+    or have any concerns with me taking next week off. I appreciate you 
+    considering this request.
+
+    Thank you, [Your name]
+
+    ### Response:
+    """
+    input_ids = tokenizer(prompt, return_tensors="pt", truncation=True).input_ids.cuda()
+    outputs = text_encoder.generate(input_ids=input_ids, max_new_tokens=100, do_sample=True, top_p=0.9, temperature=0.9)
+
+    print(
+        f"Generated instruction:\n{tokenizer.batch_decode(outputs.detach().cpu().numpy(), skip_special_tokens=True)[0][len(prompt):]}")
 
 def copy_codebase(args):
     from shutil import copytree, ignore_patterns
