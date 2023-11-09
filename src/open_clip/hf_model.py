@@ -517,7 +517,9 @@ class HFTextEncoder(nn.Module):
                  lora_dropout=0.1,
                  bias="none",
             )
+            print('Build Lora Model')
             self.transformer = get_peft_model(self.transformer, config)
+            print('Build Lora Model -- Finished')
             self.transformer.lm_head.weight.requires_grad = False
         if pooler_type is None:  # get default arch pooler
             pooler_type = (arch_dict[self.config.model_type]["pooler"])
