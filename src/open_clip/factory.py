@@ -238,8 +238,8 @@ def create_model(
                         m.bias.data = m.bias.data.to(torch.float32)
                 model.apply(_convert_ln)
             else:
-                model.to(device=device)
                 convert_weights_to_lp(model, dtype=dtype)
+                model.to(device=device)
         elif precision in ("pure_fp16", "pure_bf16"):
             dtype = torch.float16 if 'fp16' in precision else torch.bfloat16
             model.to(device=device, dtype=dtype)
