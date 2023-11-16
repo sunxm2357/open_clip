@@ -261,6 +261,7 @@ def create_model(
                 # load_checkpoint(model, checkpoint_path)
                 # print(model.text.transformer.state_dict()[
                 #           'base_model.model.model.layers.39.self_attn.k_proj.lora_B.default.weight'])
+                pass
             else:
                 error_str = (
                     f'Pretrained weights ({pretrained}) not found for model {model_name}.'
