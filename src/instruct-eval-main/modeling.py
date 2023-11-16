@@ -241,35 +241,40 @@ class LlamaModel(SeqToSeqModel):
     """
 
     def load(self):
-        if self.tokenizer is None:
-            self.tokenizer = LlamaTokenizer.from_pretrained(self.model_path)
-        if self.model is None:
-            args = {}
-            if self.load_8bit:
-                args.update(device_map="auto", load_in_8bit=True)
-            self.model = LlamaForCausalLM.from_pretrained(self.model_path, **args)
-            if self.lora_path:
-                self.model = PeftModel.from_pretrained(self.model, self.lora_path)
-            self.model.eval()
-            if not self.load_8bit:
-                self.model.to(self.device)
+        # if self.tokenizer is None:
+        #     self.tokenizer = LlamaTokenizer.from_pretrained(self.model_path)
+        # if self.model is None:
+        #     args = {}
+        #     if self.load_8bit:
+        #         args.update(device_map="auto", load_in_8bit=True)
+        #     self.model = LlamaForCausalLM.from_pretrained(self.model_path, **args)
+        #     if self.lora_path:
+        #         self.model = PeftModel.from_pretrained(self.model, self.lora_path)
+        #     self.model.eval()
+        #     if not self.load_8bit:
+        #         self.model.to(self.device)
+        model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
+        pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
+        precision = 'pure_fp16'
+        device = torch.device('cuda:0')
         model = create_model(
             model_name,
             pretrained,
             precision=precision,
             device=device,
-            jit=jit,
-            force_quick_gelu=force_quick_gelu,
-            force_custom_text=force_custom_text,
-            force_patch_dropout=force_patch_dropout,
-            force_image_size=force_image_size,
-            pretrained_image=pretrained_image,
-            pretrained_hf=pretrained_hf,
-            cache_dir=cache_dir,
-            output_dict=output_dict,
-            **model_kwargs,
+            jit=False,
+            force_quick_gelu=False,
+            force_custom_text=False,
+            force_patch_dropout=None,
+            force_image_size=None,
+            pretrained_image=False,
+            pretrained_hf=True,
+            cache_dir=None,
+            output_dict=True,
+            **{},
         )
         self.model = model.text.transformer
+        self.model.eval()
         self.tokenizer = model.text.tokenizer
 
     def run(self, prompt: str, **kwargs) -> str:
