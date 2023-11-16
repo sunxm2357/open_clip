@@ -256,6 +256,7 @@ class LlamaModel(SeqToSeqModel):
         #     self.model.eval()
         #     if not self.load_8bit:
         #         self.model.to(self.device)
+        print('using load function already!!!!!!!!!!!!!')
         model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
         pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
         precision = 'pure_fp16'
