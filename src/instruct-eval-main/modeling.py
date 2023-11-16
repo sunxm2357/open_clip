@@ -236,7 +236,9 @@ class CausalModel(SeqToSeqModel):
 
 
 class LlamaModel(SeqToSeqModel):
+
     use_template: bool = False
+    loaded: bool = False
     """
     Not officially supported by AutoModelForCausalLM, so we need the specific class
     Optionally, we can use the prompt template from: https://github.com/tatsu-lab/stanford_alpaca/blob/main/train.py
@@ -257,6 +259,7 @@ class LlamaModel(SeqToSeqModel):
         #     if not self.load_8bit:
         #         self.model.to(self.device)
         print('using load function already!!!!!!!!!!!!!')
+        self.loaded = True
         model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
         pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
         precision = 'pure_fp16'
@@ -292,7 +295,8 @@ class LlamaModel(SeqToSeqModel):
         else:
             text = prompt
 
-        self.load()
+        if not self.loaded:
+            self.load()
         inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
         if "65b" in self.model_path.lower():
             self.max_input_length = 1024
