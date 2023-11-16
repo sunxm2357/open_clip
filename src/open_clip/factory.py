@@ -347,6 +347,8 @@ def create_model_and_transforms(
         output_dict: Optional[bool] = None,
         **model_kwargs,
 ):
+    import pdb
+    pdb.set_trace()
     model = create_model(
         model_name,
         pretrained,
