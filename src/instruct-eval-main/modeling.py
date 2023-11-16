@@ -28,6 +28,9 @@ from transformers import (
     LlamaConfig,
 )
 
+from open_clip import create_model, trace_model, get_tokenizer, create_loss
+
+
 import quant
 
 
