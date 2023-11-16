@@ -258,31 +258,32 @@ class LlamaModel(SeqToSeqModel):
         #     self.model.eval()
         #     if not self.load_8bit:
         #         self.model.to(self.device)
-        print('using load function already!!!!!!!!!!!!!')
-        self.loaded = True
-        model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
-        pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
-        precision = 'pure_fp16'
-        device = torch.device('cuda:0')
-        model = create_model(
-            model_name,
-            pretrained,
-            precision=precision,
-            device=device,
-            jit=False,
-            force_quick_gelu=False,
-            force_custom_text=False,
-            force_patch_dropout=None,
-            force_image_size=None,
-            pretrained_image=False,
-            pretrained_hf=True,
-            cache_dir=None,
-            output_dict=True,
-            **{},
-        )
-        self.model = model.text.transformer
-        self.model.eval()
-        self.tokenizer = model.text.tokenizer
+        if self.tokenizer is None and self.model is None:
+            print('using load function already!!!!!!!!!!!!!')
+            self.loaded = True
+            model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
+            pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
+            precision = 'pure_fp16'
+            device = torch.device('cuda:0')
+            model = create_model(
+                model_name,
+                pretrained,
+                precision=precision,
+                device=device,
+                jit=False,
+                force_quick_gelu=False,
+                force_custom_text=False,
+                force_patch_dropout=None,
+                force_image_size=None,
+                pretrained_image=False,
+                pretrained_hf=True,
+                cache_dir=None,
+                output_dict=True,
+                **{},
+            )
+            self.model = model.text.transformer
+            self.model.eval()
+            self.tokenizer = model.text.tokenizer
 
     def run(self, prompt: str, **kwargs) -> str:
         if self.use_template:
