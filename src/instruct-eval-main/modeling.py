@@ -262,7 +262,7 @@ class LlamaModel(SeqToSeqModel):
             print('using load function already!!!!!!!!!!!!!')
             self.loaded = True
             model_name = 'vicuna13b-ViT-B-16_eos_24_lora_eval'
-            pretrained = '/projectnb/ivc-ml/piotrt/checkpoints/final_checkpoint.pt'
+            pretrained = '/pscratch/sd/h/hwchen/ckpts/clip_llm/final_checkpoint.pt'
             precision = 'pure_fp16'
             device = torch.device('cuda:0')
             model = create_model(
